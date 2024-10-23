@@ -21,8 +21,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize the Together client
-api_key = os.getenv("TOGETHER_API_KEY")
-client = Together(api_key=api_key)
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
+client = Together(TOGETHER_API_KEY=TOGETHER_API_KEY)
 
 # ImgBB API key
 IMGBB_API_KEY = os.getenv("IMGBB_API_KEY")
@@ -185,7 +185,10 @@ def generate_image(prompt, width, height, steps):
 with gr.Blocks() as demo:
     gr.Markdown("# AI Image Generator")
     gr.Markdown("Generate and upload images")
-
+    html_part = """
+    <script defer data-domain="flux-free.up.railway.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
+<script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
+"""
     with gr.Row():
         with gr.Column():
             prompt_input = gr.Textbox(
@@ -232,4 +235,5 @@ with gr.Blocks() as demo:
 
 if __name__ == "__main__":
     init_db()  # Initialize the database on program start
+    demo.add_component(gr.HTML(html_part))
     demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
