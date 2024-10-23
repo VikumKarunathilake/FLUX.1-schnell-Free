@@ -21,8 +21,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize the Together client
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
-client = Together(TOGETHER_API_KEY=TOGETHER_API_KEY)
+api_key  = os.getenv("TOGETHER_API_KEY")
+client = Together(api_key =api_key )
 
 # ImgBB API key
 IMGBB_API_KEY = os.getenv("IMGBB_API_KEY")
