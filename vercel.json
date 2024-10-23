@@ -11,10 +11,6 @@
         "src": "/(.*)",
         "dest": "main.py"
       }
-    ],
-    "env": {
-      "TOGETHER_API_KEY": "@together_api_key",
-      "IMGBB_API_KEY": "@imgbb_api_key"
-    }
+    ]
   }
   
