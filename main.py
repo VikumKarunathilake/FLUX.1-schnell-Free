@@ -181,4 +181,4 @@ with gr.Blocks() as demo:
 
 if __name__ == "__main__":
     init_db()  # Initialize the database on program start
-    demo.launch()
+    demo.launch(share=True)
