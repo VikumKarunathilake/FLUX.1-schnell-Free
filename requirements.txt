@@ -3,3 +3,5 @@ together
 requests
 Pillow
 python-dotenv
+pymysql
+mysql-connector-python

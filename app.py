@@ -5,11 +5,13 @@ from PIL import Image
 import io
 import logging
 import requests
-import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 import os
 import json
+import mysql.connector
+from mysql.connector import Error
+from urllib.parse import urlparse
 
 # Load environment variables
 load_dotenv()
@@ -25,65 +27,114 @@ client = Together(api_key=api_key)
 # ImgBB API key
 IMGBB_API_KEY = os.getenv("IMGBB_API_KEY")
 
-# Initialize SQLite database
+# MySQL Connection Configuration
+MYSQL_URL = os.getenv("MYSQL_URL")
+
+def get_db_config():
+    """Parse MySQL URL and return connection config"""
+    parsed = urlparse(MYSQL_URL)
+    return {
+        'host': parsed.hostname,
+        'user': parsed.username,
+        'password': parsed.password,
+        'database': parsed.path.strip('/'),
+        'port': parsed.port
+    }
+
+def get_db_connection():
+    """Create and return a MySQL connection"""
+    try:
+        config = get_db_config()
+        connection = mysql.connector.connect(**config)
+        if connection.is_connected():
+            logger.info('Successfully connected to MySQL database')
+            return connection
+    except Error as e:
+        logger.error(f"Error connecting to MySQL: {e}")
+        raise
+
 def init_db():
-    """Initialize the SQLite database and create a table for storing image data."""
-    conn = sqlite3.connect('images.db')
-    c = conn.cursor()
-    c.execute('''
+    """Initialize the MySQL database and create a table for storing image data."""
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        create_table_query = '''
         CREATE TABLE IF NOT EXISTS generated_images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             generation_prompt TEXT,
             generation_timestamp DATETIME,
-            generation_width INTEGER,
-            generation_height INTEGER,
-            generation_steps INTEGER,
-            imgbb_id TEXT,
-            imgbb_title TEXT,
+            generation_width INT,
+            generation_height INT,
+            generation_steps INT,
+            imgbb_id VARCHAR(255),
+            imgbb_title VARCHAR(255),
             imgbb_url_viewer TEXT,
             imgbb_url TEXT,
             imgbb_display_url TEXT,
-            imgbb_width TEXT,
-            imgbb_height TEXT,
-            imgbb_size TEXT,
-            imgbb_time TEXT,
-            imgbb_expiration TEXT,
+            imgbb_width VARCHAR(50),
+            imgbb_height VARCHAR(50),
+            imgbb_size VARCHAR(50),
+            imgbb_time VARCHAR(50),
+            imgbb_expiration VARCHAR(50),
             delete_url TEXT,
             raw_response TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        '''
+        
+        cursor.execute(create_table_query)
+        connection.commit()
+        logger.info("Database initialized successfully")
+        
+    except Error as e:
+        logger.error(f"Error initializing database: {e}")
+        raise
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 def save_to_database(prompt, width, height, steps, imgbb_response):
-    """Save generated image data along with ImgBB response to SQLite database."""
+    """Save generated image data along with ImgBB response to MySQL database."""
     try:
-        conn = sqlite3.connect('images.db')
-        c = conn.cursor()
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
         data = imgbb_response['data']
-        c.execute('''
-            INSERT INTO generated_images (
-                generation_prompt, generation_timestamp, generation_width, generation_height, generation_steps,
-                imgbb_id, imgbb_title, imgbb_url_viewer, imgbb_url, imgbb_display_url, imgbb_width,
-                imgbb_height, imgbb_size, imgbb_time, imgbb_expiration, delete_url, raw_response
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
+        insert_query = '''
+        INSERT INTO generated_images (
+            generation_prompt, generation_timestamp, generation_width, generation_height, 
+            generation_steps, imgbb_id, imgbb_title, imgbb_url_viewer, imgbb_url, 
+            imgbb_display_url, imgbb_width, imgbb_height, imgbb_size, imgbb_time, 
+            imgbb_expiration, delete_url, raw_response
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        )
+        '''
+        
+        values = (
             prompt, datetime.now(), width, height, steps,
             data.get('id'), data.get('title'), data.get('url_viewer'),
             data.get('url'), data.get('display_url'), data.get('width'),
             data.get('height'), data.get('size'), data.get('time'),
             data.get('expiration'), data.get('delete_url'),
             json.dumps(imgbb_response)
-        ))
-        conn.commit()
+        )
+        
+        cursor.execute(insert_query, values)
+        connection.commit()
         logger.info("Successfully saved to database")
         return True
-    except Exception as e:
-        logger.error(f"Database error: {str(e)}")
+        
+    except Error as e:
+        logger.error(f"Database error: {e}")
         return False
     finally:
-        conn.close()
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
+# The rest of the functions remain unchanged
 def upload_to_imgbb(image_bytes):
     """Upload an image to ImgBB and return the complete response."""
     try:
@@ -130,7 +181,7 @@ def generate_image(prompt, width, height, steps):
         logger.error(f"Error generating image: {str(e)}")
         raise Exception(f"Error generating image: {str(e)}")
 
-# Gradio interface
+# Gradio interface remains the same
 with gr.Blocks() as demo:
     gr.Markdown("# AI Image Generator")
     gr.Markdown("Generate and upload images")
@@ -143,9 +194,9 @@ with gr.Blocks() as demo:
                 lines=3
             )
             with gr.Row():
-                width_input = gr.Slider(minimum=256, maximum=1024, value=1024, step=64, label="Width")
-                height_input = gr.Slider(minimum=256, maximum=1024, value=768, step=64, label="Height")
-            steps_input = gr.Slider(minimum=1, maximum=20, value=4, step=1, label="Steps")
+                width_input = gr.Slider(minimum=256, maximum=1024, value=512, step=64, label="Width")
+                height_input = gr.Slider(minimum=256, maximum=1024, value=512, step=64, label="Height")
+            steps_input = gr.Slider(minimum=1, maximum=4, value=1, step=1, label="Steps")
             generate_btn = gr.Button("Generate Image")
 
         with gr.Column():
