@@ -189,6 +189,7 @@ with gr.Blocks() as demo:
     <script defer data-domain="flux-free.up.railway.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
 <script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
 """
+    gr.HTML(html_part)
     with gr.Row():
         with gr.Column():
             prompt_input = gr.Textbox(
@@ -235,5 +236,5 @@ with gr.Blocks() as demo:
 
 if __name__ == "__main__":
     init_db()  # Initialize the database on program start
-    demo.add_component(gr.HTML(html_part))
+    
     demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
