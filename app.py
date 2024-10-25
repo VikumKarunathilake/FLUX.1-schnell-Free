@@ -184,7 +184,7 @@ def generate_image(prompt, width, height, steps):
 # Gradio interface remains the same
 with gr.Blocks() as demo:
     gr.Markdown("# AI Image Generator")
-    gr.Markdown("This app using *FLUX.1-schnell`")
+    gr.Markdown("This app using **FLUX.1-schnell**")
     gr.Markdown("Generate high quality images from text descriptions.")
     gr.Markdown("Visit [Gallery](https://flux1.up.railway.app/gallery)")
     
