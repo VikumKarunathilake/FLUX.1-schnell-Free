@@ -198,9 +198,9 @@ with gr.Blocks() as demo:
                 lines=3
             )
             with gr.Row():
-                width_input = gr.Slider(minimum=256, maximum=1024, value=512, step=64, label="Width")
-                height_input = gr.Slider(minimum=256, maximum=1024, value=512, step=64, label="Height")
-            steps_input = gr.Slider(minimum=1, maximum=4, value=1, step=1, label="Steps")
+                width_input = gr.Slider(minimum=256, maximum=1440, value=832, step=64, label="Width")
+                height_input = gr.Slider(minimum=256, maximum=1440, value=1216, step=64, label="Height")
+            steps_input = gr.Slider(minimum=1, maximum=10, value=1, step=1, label="Steps")
             generate_btn = gr.Button("Generate Image")
 
         with gr.Column():
