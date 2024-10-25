@@ -184,7 +184,10 @@ def generate_image(prompt, width, height, steps):
 # Gradio interface remains the same
 with gr.Blocks() as demo:
     gr.Markdown("# AI Image Generator")
-    gr.Markdown("Generate and upload images")
+    gr.Markdown("This app using *FLUX.1-schnell`")
+    gr.Markdown("Generate high quality images from text descriptions.")
+    gr.Markdown("Visit [Gallery](https://flux1.up.railway.app/gallery)")
+    
     html_part = """
     <script defer data-domain="flux-free.up.railway.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
 <script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
@@ -198,15 +201,14 @@ with gr.Blocks() as demo:
                 lines=3
             )
             with gr.Row():
-                width_input = gr.Slider(minimum=256, maximum=1440, value=832, step=64, label="Width")
-                height_input = gr.Slider(minimum=256, maximum=1440, value=1216, step=64, label="Height")
-            steps_input = gr.Slider(minimum=1, maximum=10, value=1, step=1, label="Steps")
+                width_input = gr.Slider(minimum=256, maximum=1440, value=832, step=16, label="Width")
+                height_input = gr.Slider(minimum=256, maximum=1440, value=1216, step=16, label="Height")
+            steps_input = gr.Slider(minimum=1, maximum=4, value=1, step=1, label="Steps")
             generate_btn = gr.Button("Generate Image")
 
         with gr.Column():
             image_output = gr.Image(label="Generated Image")
             status_output = gr.Textbox(label="Status", interactive=False)
-
     def handle_generation(prompt, width, height, steps):
         """Handle the image generation and upload process."""
         try:
@@ -219,9 +221,9 @@ with gr.Blocks() as demo:
             
             # Save to database
             if save_to_database(prompt, width, height, steps, imgbb_response):
-                return image, "Image generated, uploaded, and saved successfully!"
+                return image, "Image generated successfully!"
             else:
-                return image, "Image generated and uploaded, but database save failed!"
+                return image, "Image generated and uploaded, but save failed!"
                 
         except Exception as e:
             logger.error(f"Error in handle_generation: {str(e)}")
