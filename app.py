@@ -60,7 +60,7 @@ def init_db():
         cursor = connection.cursor()
         
         create_table_query = '''
-        CREATE TABLE IF NOT EXISTS generated_images (
+        CREATE TABLE IF NOT EXISTS images (
             id INT AUTO_INCREMENT PRIMARY KEY,
             generation_prompt TEXT,
             generation_timestamp DATETIME,
@@ -102,7 +102,7 @@ def save_to_database(prompt, width, height, steps, imgbb_response):
         
         data = imgbb_response['data']
         insert_query = '''
-        INSERT INTO generated_images (
+        INSERT INTO images (
             generation_prompt, generation_timestamp, generation_width, generation_height, 
             generation_steps, imgbb_id, imgbb_title, imgbb_url_viewer, imgbb_url, 
             imgbb_display_url, imgbb_width, imgbb_height, imgbb_size, imgbb_time, 
