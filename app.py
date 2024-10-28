@@ -111,7 +111,7 @@ def save_to_database(prompt, width, height, steps, imgbb_response):
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )
         '''
-        
+         
         values = (
             prompt, datetime.now(), width, height, steps,
             data.get('id'), data.get('title'), data.get('url_viewer'),
