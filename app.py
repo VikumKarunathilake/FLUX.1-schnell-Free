@@ -183,10 +183,21 @@ def generate_image(prompt, width, height, steps):
 
 # Gradio interface remains the same
 with gr.Blocks() as demo:
-    gr.Markdown("# AI Image Generator")
-    gr.Markdown("This app using **FLUX.1-schnell**")
-    gr.Markdown("Generate high quality images from text descriptions.")
-    gr.Markdown("Visit [Gallery](https://flux1.up.railway.app/gallery)")
+    gr.Markdown(
+        """
+        # FLUX.1 AI Image Generator 🖼️
+        
+        Welcome to the **AI Image Generator** powered by the **FLUX.1 [schnell]** model! 🎨
+
+        Enter a description of any scene, character, or object you'd like to see come to life, adjust image dimensions, and select the number of steps to control image detail. Click **"Generate Image"** to create your custom artwork in seconds!
+
+        **Features:**
+        - Generate high-quality images from text descriptions.
+        - Adjust image dimensions for custom sizes.
+        - Optimized for quick and reliable outputs.
+
+        """
+    )
     
     html_part = """
     <script defer data-domain="flux-free.up.railway.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
