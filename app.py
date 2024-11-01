@@ -198,12 +198,6 @@ with gr.Blocks() as demo:
 
         """
     )
-    
-    html_part = """
-    <script defer data-domain="flux-free.up.railway.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
-<script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
-"""
-    gr.HTML(html_part)
     with gr.Row():
         with gr.Column():
             prompt_input = gr.Textbox(
@@ -212,9 +206,9 @@ with gr.Blocks() as demo:
                 lines=3
             )
             with gr.Row():
-                width_input = gr.Slider(minimum=256, maximum=1440, value=832, step=16, label="Width")
-                height_input = gr.Slider(minimum=256, maximum=1440, value=1216, step=16, label="Height")
-            steps_input = gr.Slider(minimum=1, maximum=4, value=1, step=1, label="Steps")
+                width_input = gr.Slider(minimum=256, maximum=1440, value=832, step=16, label="Width",interactive=False)
+                height_input = gr.Slider(minimum=256, maximum=1440, value=1216, step=16, label="Height",interactive=False)
+            steps_input = gr.Slider(minimum=1, maximum=4, value=4, step=1, label="Steps")
             generate_btn = gr.Button("Generate Image")
 
         with gr.Column():
