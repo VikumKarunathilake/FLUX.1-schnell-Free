@@ -183,19 +183,29 @@ def generate_image(prompt, width, height, steps):
 
 # Gradio interface remains the same
 with gr.Blocks() as demo:
-    gr.Markdown(
+    gr.HTML(
         """
-        # FLUX.1 AI Image Generator 🖼️
-        
-        Welcome to the **AI Image Generator** powered by the **FLUX.1 [schnell]** model! 🎨
-
-        Enter a description of any scene, character, or object you'd like to see come to life, adjust image dimensions, and select the number of steps to control image detail. Click **"Generate Image"** to create your custom artwork in seconds!
-
-        **Features:**
-        - Generate high-quality images from text descriptions.
-        - Adjust image dimensions for custom sizes.
-        - Optimized for quick and reliable outputs.
-
+        <head>
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <div class="text-center p-5">
+            <h1 class="text-3xl sm:text-4xl font-semibold text-gray-800">FLUX.1 AI Image Generator 🖼️</h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto mt-2">
+            Welcome to the <strong>AI Image Generator</strong> powered by the <strong>FLUX.1 [schnell]</strong> model! 🎨
+            </p>
+            <p class="text-sm sm:text-base text-gray-600 max-w-3xl mx-auto mt-4">
+            Enter a description of any scene, character, or object you'd like to see come to life, adjust image dimensions,
+            and select the number of steps to control image detail. Click <strong>"Generate Image"</strong> to create your
+            custom artwork in seconds!
+            </p>
+        <div class="text-left max-w-3xl mx-auto mt-6 text-gray-800">
+            <h3 class="text-lg sm:text-xl font-semibold">Features:</h3>
+                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                    <li>Generate high-quality images from text descriptions.</li>
+                    <li>Optimized for quick and reliable outputs.</li>
+                </ul>
+        </div>
+        </div>
         """
     )
     with gr.Row():
@@ -240,7 +250,29 @@ with gr.Blocks() as demo:
         inputs=[prompt_input, width_input, height_input, steps_input],
         outputs=[image_output, status_output]
     )
-
+    gr.HTML(
+        """
+        <div class="text-center p-6">
+    <h2 class="text-2xl sm:text-3xl font-semibold text-gray-800">Explore the FLUX.1 Gallery</h2>
+    <p class="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto mt-2">
+        Discover all images generated with the FLUX.1 AI Image Generator. Each creation is stored in the gallery for
+        you to view, share, or download. Every image includes the prompt details and settings, allowing you to see the
+        creative process behind each piece.
+    </p>
+    <a href="https://flux-gallery.up.railway.app/" target="_blank"
+        class="inline-block mt-4 px-4 py-2 text-base sm:text-lg font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition">
+        Visit the Gallery
+    </a>
+</div>
+        <footer style="text-align: center; padding: 10px; margin-top: 20px; font-size: 14px; color: #777;">
+            <hr style="margin-top: 20px; margin-bottom: 20px;">
+            <p>&copy; 2024 FLUX.1[schnell] AI Image Generator. All rights reserved.</p>
+            <p>Contact us at <a href="https://discord.com/users/781158548364853270" target="_blank">Discord (Vikum_K)</a></p> 
+            <p>Powered by <a href="https://api.together.xyz/" target="_blank">Together.ai</a></p>
+            
+        </footer>
+        """
+    )
 if __name__ == "__main__":
     init_db()  # Initialize the database on program start
     
