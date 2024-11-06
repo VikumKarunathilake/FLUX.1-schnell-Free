@@ -253,6 +253,15 @@ def create_demo():
                 <meta property="og:type" content="website">
                 <script src="https://cdn.tailwindcss.com"></script>
                 <link rel="preconnect" href="https://api.together.xyz">
+                <!-- Google tag (gtag.js) -->
+                <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q6XWT3TKBE"></script>
+                <script>
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('js', new Date());
+
+                    gtag('config', 'G-Q6XWT3TKBE');
+                </script>
             </head>
             <div class="text-center p-5" role="main">
                 <h1 class="text-3xl sm:text-4xl font-semibold text-gray-800">
