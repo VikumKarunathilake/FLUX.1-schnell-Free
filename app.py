@@ -254,7 +254,6 @@ def create_demo():
             <div class="text-center p-5" role="main">
                 <h1 class="text-3xl sm:text-4xl font-semibold text-gray-800">
                     Elixir Craft Image Generator 🖼️
-                    <span class="accessibility-aid">Create AI-generated artwork</span>
                 </h1>
                 <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto mt-2">
                     Welcome to the <strong>AI Image Generator</strong> powered by the <strong>FLUX.1 [schnell]</strong> model! 🎨
