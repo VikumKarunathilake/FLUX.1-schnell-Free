@@ -222,23 +222,11 @@ def save_to_database(prompt, width, height, steps, imgbb_response):
         if 'connection' in locals() and connection.is_connected():
             cursor.close()
             connection.close()
-class PurplePinkTheme(gr.themes.Base):
-    def __init__(self):
-        super().__init__()
-        # Set primary colors to purple and pink shades
-        self.primary_background = "#6A0DAD"  # Purple
-        self.secondary_background = "#FF69B4"  # Pink
-        self.accent = "#DA70D6"  # Light purple-pink
 
 def create_demo():
-    with gr.Blocks(theme=PurplePinkTheme(),
+    with gr.Blocks(css="style.css", theme="NoCrypt/miku@1.2.1",
         title="Elixir Craft Image Generator",
-        css="""
-            .accessibility-aid { position: absolute; left: -9999px; }
-            @media (prefers-reduced-motion: reduce) {
-                * { animation: none !important; transition: none !important; }
-            }
-        """
+
         
     ) as demo:
         gr.HTML("""
