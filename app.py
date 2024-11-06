@@ -364,6 +364,18 @@ def create_demo():
                     Visit the Gallery
                 </a>
             </div>
+                <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9627208949475310"
+                    crossorigin="anonymous"></script>
+                <!-- generator_bottem_horizontal -->
+                <ins class="adsbygoogle"
+                    style="display:block"
+                    data-ad-client="ca-pub-9627208949475310"
+                    data-ad-slot="6366650761"
+                    data-ad-format="auto"
+                    data-full-width-responsive="true"></ins>
+                <script>
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
             <footer role="contentinfo" class="text-center p-4 mt-8 text-sm text-gray-600">
                 <hr class="my-4">
                 <p>&copy; 2024 FLUX.1[schnell] AI Image Generator. All rights reserved.</p>
