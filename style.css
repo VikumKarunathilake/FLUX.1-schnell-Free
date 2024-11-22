@@ -22,10 +22,11 @@ h2 {
   background: #1565c0;
   border-radius: 100vh;
   padding: 0.5rem 1rem;
+  font-size: clamp(0.8rem, 2vw, 1rem);
 }
 
 #component-0 {
-  max-width: 85%;
+  max-width: min(85%, 600px);
   margin: 2rem auto;
   padding: 2rem;
 }
@@ -33,7 +34,7 @@ h2 {
 @media (max-width: 600px) {
   #component-0 {
     max-width: 100%;
-    padding: 0.5rem;
+    padding: 1rem;
   }
 }
 
@@ -61,7 +62,8 @@ h2 {
   font-size: var(--subtitle-font-size);
   margin-top: 1rem;
 }
+
 .accessibility-aid { position: absolute; left: -9999px; }
-            @media (prefers-reduced-motion: reduce) {
-                * { animation: none !important; transition: none !important; }
-            }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

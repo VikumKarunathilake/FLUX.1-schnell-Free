@@ -9,107 +9,103 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import json
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2 import Error
 from urllib.parse import urlparse
 from functools import lru_cache
 import time
 from typing import Tuple, Any, Optional
+import genarationData
 
-# Load environment variables and setup remain the same
+# Load environment variables
 load_dotenv()
 
-# Logging setup
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Initialize the Together client
+# Initialize Together client
 api_key = os.getenv("TOGETHER_API_KEY")
 client = Together(api_key=api_key)
 
 # Configuration constants
 IMGBB_API_KEY = os.getenv("IMGBB_API_KEY")
-MYSQL_URL = os.getenv("MYSQL_URL")
+POSTGRES_URL = os.getenv("POSTGRES_URL")
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
 CACHE_TIMEOUT = 3600
 MAX_RETRIES = 3
 RETRY_DELAY = 1
 
-# Database and utility functions remain the same
 @lru_cache(maxsize=1)
 def get_db_config() -> dict:
-    parsed = urlparse(MYSQL_URL)
+    """Parse PostgreSQL URL and return connection configuration."""
+    parsed = urlparse(POSTGRES_URL)
     return {
         'host': parsed.hostname,
         'user': parsed.username,
         'password': parsed.password,
         'database': parsed.path.strip('/'),
         'port': parsed.port,
-        'pool_size': 5,
-        'pool_name': 'mypool',
-        'pool_reset_session': True
     }
 
-def get_db_connection():
+def get_db_connection() -> psycopg2.extensions.connection:
+    """Establish a connection to the PostgreSQL database with retry logic."""
     for attempt in range(MAX_RETRIES):
         try:
             config = get_db_config()
-            connection = mysql.connector.connect(**config)
-            if connection.is_connected():
-                logger.info('Successfully connected to MySQL database')
+            connection = psycopg2.connect(**config)
+            if connection:
+                logger.info('Successfully connected to PostgreSQL database')
                 return connection
         except Error as e:
             if attempt == MAX_RETRIES - 1:
-                logger.error(f"Final attempt failed to connect to MySQL: {e}")
+                logger.error(f"Final attempt failed to connect to PostgreSQL: {e}")
                 raise
             time.sleep(RETRY_DELAY)
-            continue
+    raise Exception("Failed to connect to database after retries")
 
 def init_db():
+    """Initialize the database schema if it doesn't exist."""
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        create_table_query = '''
-        CREATE TABLE IF NOT EXISTS generated_images (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            generation_prompt TEXT NOT NULL,
-            generation_timestamp DATETIME NOT NULL,
-            generation_width INT NOT NULL,
-            generation_height INT NOT NULL,
-            generation_steps INT NOT NULL,
-            imgbb_id VARCHAR(255) NOT NULL,
-            imgbb_title VARCHAR(255),
-            imgbb_url_viewer TEXT,
-            imgbb_url TEXT,
-            imgbb_display_url TEXT,
-            imgbb_width VARCHAR(50),
-            imgbb_height VARCHAR(50),
-            imgbb_size VARCHAR(50),
-            imgbb_time VARCHAR(50),
-            imgbb_expiration VARCHAR(50),
-            delete_url TEXT,
-            raw_response TEXT,
-            INDEX idx_timestamp (generation_timestamp),
-            INDEX idx_imgbb_id (imgbb_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        '''
-        
-        cursor.execute(create_table_query)
-        connection.commit()
-        logger.info("Database initialized successfully")
-        
+        with get_db_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS generated_images (
+                    id SERIAL PRIMARY KEY,
+                    generation_prompt TEXT NOT NULL,
+                    generation_timestamp TIMESTAMP NOT NULL,
+                    generation_width INT NOT NULL,
+                    generation_height INT NOT NULL,
+                    generation_steps INT NOT NULL,
+                    imgbb_id VARCHAR(255) NOT NULL,
+                    imgbb_title VARCHAR(255),
+                    imgbb_url_viewer TEXT,
+                    imgbb_url TEXT,
+                    imgbb_display_url TEXT,
+                    imgbb_width VARCHAR(50),
+                    imgbb_height VARCHAR(50),
+                    imgbb_size VARCHAR(50),
+                    imgbb_time VARCHAR(50),
+                    imgbb_expiration VARCHAR(50),
+                    delete_url TEXT,
+                    raw_response TEXT,
+                    user_id VARCHAR(255)
+                );
+                ''')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON generated_images (generation_timestamp);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_imgbb_id ON generated_images (imgbb_id);')
+            connection.commit()
+            logger.info("Database initialized successfully")
     except Error as e:
         logger.error(f"Error initializing database: {e}")
         raise
-    finally:
-        if 'connection' in locals() and connection.is_connected():
-            cursor.close()
-            connection.close()
 
 def retry_with_backoff(func):
+    """Decorator for functions to retry with exponential backoff."""
     def wrapper(*args, **kwargs):
         for i in range(MAX_RETRIES):
             try:
@@ -124,132 +120,111 @@ def retry_with_backoff(func):
 
 @retry_with_backoff
 def upload_to_imgbb(image_bytes: bytes) -> dict:
-    try:
-        img_base64 = base64.b64encode(image_bytes).decode('utf-8')
-        url = "https://api.imgbb.com/1/upload"
-        payload = {
-            "key": IMGBB_API_KEY,
-            "image": img_base64
-        }
-        response = requests.post(url, payload, timeout=30)
-        response.raise_for_status()
-        logger.info("Successfully uploaded to ImgBB")
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        logger.error(f"ImgBB upload error: {str(e)}")
-        raise Exception("Failed to upload image to ImgBB")
+    """Upload image to ImgBB and return the response."""
+    img_base64 = base64.b64encode(image_bytes).decode('utf-8')
+    url = "https://api.imgbb.com/1/upload"
+    payload = {
+        "key": IMGBB_API_KEY,
+        "image": img_base64
+    }
+    response = requests.post(url, payload, timeout=30)
+    response.raise_for_status()
+    logger.info("Successfully uploaded to ImgBB")
+    return response.json()
 
 @retry_with_backoff
 def generate_image(prompt: str, width: int, height: int, steps: int) -> Tuple[Image.Image, bytes]:
+    """Generate an image using the Together API."""
     if not prompt.strip():
         raise ValueError("Please enter a prompt")
     
-    try:
-        logger.info(f"Generating image with parameters: width={width}, height={height}, steps={steps}")
-        response = client.images.generate(
-            prompt=prompt,
-            model="black-forest-labs/FLUX.1-schnell-Free",
-            width=width,
-            height=height,
-            steps=steps,
-            n=1,
-            response_format="b64_json"
-        )
-        
-        image_bytes = base64.b64decode(response.data[0].b64_json)
-        image = Image.open(io.BytesIO(image_bytes))
-        
-        logger.info("Image generated successfully")
-        return image, image_bytes
-    except Exception as e:
-        logger.error(f"Error generating image: {str(e)}")
-        raise Exception(f"Error generating image: {str(e)}")
+    logger.info(f"Generating image with parameters: width={width}, height={height}, steps={steps}")
+    response = client.images.generate(
+        prompt=prompt,
+        model="black-forest-labs/FLUX.1-schnell-Free",
+        width=width,
+        height=height,
+        steps=steps,
+        n=1,
+        response_format="b64_json"
+    )
+    
+    image_bytes = base64.b64decode(response.data[0].b64_json)
+    image = Image.open(io.BytesIO(image_bytes))
+    
+    logger.info("Image generated successfully")
+    return image, image_bytes
 
 def handle_generation(prompt: str, width: int, height: int, steps: int) -> Tuple[Optional[Image.Image], str]:
-    """Handle the image generation and upload process with improved error handling."""
+    """Handle the entire process of image generation, upload, and database save."""
     try:
-        # Generate the image
         image, image_bytes = generate_image(prompt, width, height, steps)
-        
-        # Upload to ImgBB
         imgbb_response = upload_to_imgbb(image_bytes)
-        
-        # Save to database
         if save_to_database(prompt, width, height, steps, imgbb_response):
             return image, "Image generated successfully!"
         else:
             return image, "Image generated and uploaded, but database save failed!"
-            
     except Exception as e:
         logger.error(f"Error in handle_generation: {str(e)}")
         return None, f"Error: {str(e)}"
 
-def save_to_database(prompt, width, height, steps, imgbb_response):
+def save_to_database(prompt: str, width: int, height: int, steps: int, imgbb_response: dict) -> bool:
+    """Save image generation details to the database."""
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        data = imgbb_response['data']
-        insert_query = '''
-        INSERT INTO generated_images (
-            generation_prompt, generation_timestamp, generation_width, generation_height, 
-            generation_steps, imgbb_id, imgbb_title, imgbb_url_viewer, imgbb_url, 
-            imgbb_display_url, imgbb_width, imgbb_height, imgbb_size, imgbb_time, 
-            imgbb_expiration, delete_url, raw_response
-        ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-        )
-        '''
-         
-        values = (
-            prompt, datetime.now(), width, height, steps,
-            data.get('id'), data.get('title'), data.get('url_viewer'),
-            data.get('url'), data.get('display_url'), data.get('width'),
-            data.get('height'), data.get('size'), data.get('time'),
-            data.get('expiration'), data.get('delete_url'),
-            json.dumps(imgbb_response)
-        )
-        
-        cursor.execute(insert_query, values)
-        connection.commit()
-        logger.info("Successfully saved to database")
-        return True
-        
+        with get_db_connection() as connection:
+            with connection.cursor() as cursor:
+                data = imgbb_response['data']
+                insert_query = '''
+                INSERT INTO generated_images (
+                    generation_prompt, generation_timestamp, generation_width, generation_height, 
+                    generation_steps, imgbb_id, imgbb_title, imgbb_url_viewer, imgbb_url, 
+                    imgbb_display_url, imgbb_width, imgbb_height, imgbb_size, imgbb_time, 
+                    imgbb_expiration, delete_url, raw_response, user_id
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                '''
+                values = (
+                    prompt, datetime.now(), width, height, steps,
+                    data.get('id'), data.get('title'), data.get('url_viewer'),
+                    data.get('url'), data.get('display_url'), data.get('width'),
+                    data.get('height'), data.get('size'), data.get('time'),
+                    data.get('expiration'), data.get('delete_url'),
+                    json.dumps(imgbb_response), None  # Assuming user_id is optional
+                )
+                cursor.execute(insert_query, values)
+                connection.commit()
+                logger.info("Successfully saved to database")
+                return True
     except Error as e:
         logger.error(f"Database error: {e}")
         return False
-    finally:
-        if 'connection' in locals() and connection.is_connected():
-            cursor.close()
-            connection.close()
 
 def create_demo():
-    with gr.Blocks(css="style.css", theme="NoCrypt/miku@1.2.1",
-        title="Elixir Craft Image Generator",
-
-        
-    ) as demo:
+    """Create and return the Gradio demo interface."""
+    with gr.Blocks(css="style.css", theme="NoCrypt/miku", title="Elixir Craft Image Generator") as demo:
         gr.HTML("""
             <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta name="description" content="Generate custom AI artwork using FLUX.1 [schnell] model. Create unique images from text descriptions with adjustable parameters.">
-                <meta name="keywords" content="AI art generator, FLUX.1, image generation, AI artwork, custom images, Elixir Craft, elixircraft">
-                <meta name="author" content="Vikum Karunathilake">
-                <meta property="og:title" content="Elixir Craft Image Generator">
-                <meta property="og:description" content="Create custom AI artwork using the FLUX.1 [schnell] model">
-                <meta property="og:type" content="website">
-                <script src="https://cdn.tailwindcss.com"></script>
-                <link rel="preconnect" href="https://api.together.xyz">
-                <!-- Google tag (gtag.js) -->
-                <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q6XWT3TKBE"></script>
-                <script>
-                    window.dataLayer = window.dataLayer || [];
-                    function gtag(){dataLayer.push(arguments);}
-                    gtag('js', new Date());
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elixir Craft Image Generator</title>
+    <meta name="description" content="Generate stunning AI art from text descriptions with Elixir Craft's FLUX.1 [schnell] model. Unleash your creativity and bring your visions to life.">
+    <meta name="keywords" content="AI art generator, text-to-image, AI image generation, FLUX.1, Elixir Craft, digital art, AI art, creative tools, image synthesis, artificial intelligence">
+    <meta name="author" content="Vikum Karunathilake">
 
-                    gtag('config', 'G-Q6XWT3TKBE');
-                </script>
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://generator.elixircraft.net/">
+    <meta property="og:title" content="Elixir Craft Image Generator">
+    <meta property="og:description" content="Generate stunning AI art from text descriptions with Elixir Craft's FLUX.1 [schnell] model. Unleash your creativity and bring your visions to life.">
+
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">  <!-- Changed to summary for smaller image -->
+    <meta name="twitter:creator" content="@VikumKarunathilake">
+    <meta name="twitter:title" content="Elixir Craft Image Generator">
+    <meta name="twitter:description" content="Generate stunning AI art from text descriptions with Elixir Craft's FLUX.1 [schnell] model. Unleash your creativity and bring your visions to life.">
+
             </head>
             <div class="text-center p-5" role="main">
                 <h1 class="text-3xl sm:text-4xl font-semibold text-gray-800">
@@ -328,7 +303,7 @@ def create_demo():
                     elem_classes="accessible-status"
                 )
 
-        # Important: Event binding is now inside the Blocks context
+        # Event binding for image generation
         generate_btn.click(
             fn=handle_generation,
             inputs=[prompt_input, width_input, height_input, steps_input],
@@ -351,18 +326,6 @@ def create_demo():
                     Visit the Gallery
                 </a>
             </div>
-                <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9627208949475310"
-                    crossorigin="anonymous"></script>
-                <!-- generator_bottem_horizontal -->
-                <ins class="adsbygoogle"
-                    style="display:block"
-                    data-ad-client="ca-pub-9627208949475310"
-                    data-ad-slot="6366650761"
-                    data-ad-format="auto"
-                    data-full-width-responsive="true"></ins>
-                <script>
-                    (adsbygoogle = window.adsbygoogle || []).push({});
-                </script>
             <footer role="contentinfo" class="text-center p-4 mt-8 text-sm text-gray-600">
                 <hr class="my-4">
                 <p>&copy; 2024 FLUX.1[schnell] AI Image Generator. All rights reserved.</p>
@@ -370,8 +333,7 @@ def create_demo():
                 <p>Powered by <a href="https://api.together.xyz/" target="_blank" rel="noopener noreferrer" aria-label="Visit Together.ai">Together.ai</a></p>
             </footer>
         """)
-        
-        return demo
+    return demo
 
 if __name__ == "__main__":
     init_db()  # Initialize the database on program start
